@@ -1,0 +1,149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Serif', serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Serif Pro', serif;
+  }
+</style>
+<title>CS180 Project 1</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=PT+Serif|Source+Serif+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS180 Intro to Computer Vision and Computational Photography</h1>
+<h1 align="middle">Project 1 by Wentinn Liao</h1>
+
+<div>
+
+<h2 align="middle">Overview</h2>
+<p>The core of the algorithm uses image histogram, edge detection, and image cross correlation to align the RGB channels. The reasoning behind this approach is that edges where color changes occur are likely to be present in all three channels, and therefore if we can magnifiy the edges, then this transform would be a good candidate for straightforward cross-correlation.</p>
+
+<p>The image histogram transform is used as a means to sharpen the image before edge detection, and is implemented by flattening and sorting the channel, then using <strong>np.searchsorted</strong> to determine what proportion of pixels lie below a given pixel value. Edge detection is implemented through a 3x3 Sobel Kernel, and calculating the Euclidean norm of the empirical color gradients. This norm is scaled linearly to <strong>[-5, 5]</strong> and passed through a sigmoid function to strengthen more prominent edges and weaken the lesser edges. This is then passed into (unnormalized) cross-correlation, which is maximized over a small window of displacements in order to find the optimal one.</p>
+
+<div>
+
+<h2 align="middle">Speedup</h2>
+<p>My algorithm does not explicitly construct a pyramid, but rather recursively constructs lower (half) resolution images until the images size is small enough to be processed directly. Empirically, this is found to be around 600px, which is also around the size of the largest small image. If the image is too large, then it recursively finds the optimal displacement for a half resolution image, doubles the displacement, and uses it as the center of the new search window. An additional speedup is used, which is decaying window size, meaning that as we go from low to high resolution, the window size decays exponentially. The goal of this is is to reduce computations on higher resolution images. This optimization performs well because searches on a lower resolution image will get us in the general ballpark of the optimal displacement, which allows the search window to be smaller for subsequent resolutions. In implementation, the window for low resolution images is <strong>[-40, 40] x [-40, 40]</strong> and decays by <strong>50%</strong> for each recursive call. The runtime is instant for small jpg images and around <strong>40s</strong> for large images, which is acceptable for what I care about.</p>
+
+<div>
+
+<h2 align="middle">Results</h2>
+<p>Shown below are the results of the implemented algorithm. The algorithm performs reasonably well and produces images that are not harmful to the naked eye unlike the unaligned images. However, visual examination on images such as <strong>onion church</strong> and <strong>monastery</strong> shows some of the alignments are marginally incorrect, for example exhibiting a small green or red shadow in the x or y direction. Attempts to fix this included quantization, which merges pixels that are likely to be part of the same object based on the predicted colors, and refinement which looks for these artifacts and makes miniscule changes. This algorithm performs poorly on some images with very fine details that produce many edges. This causes some alignments to be sufficiently good to be determined the "optimal" alignment.</p>
+
+<h3 align="middle">Example Images</h3>
+<div align="middle">
+    <table style="width=100%">
+        <tr>
+            <td>
+                <img src="images/cathedral.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Cathedral. R: (0, 0), G: (-7, -1), B: (-12, -3) </figcaption>
+            </td>
+            <td>
+                <img src="images/church.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Church. R: (0, 0), G: (-33, 8), B: (-58, 4)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/emir.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Emir. R: (0, 0), G: (-58, -17), B: (-107, -41)</figcaption>
+            </td>
+            <td>
+                <img src="images/harvesters.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Harvesters. R: (0, 0), G: (-64, 3), B: (-124, -11)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/icon.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Icon. R: (0, 0), G: (-48, -5), B: (-90, -23)</figcaption>
+            </td>
+            <td>
+                <img src="images/lady.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Lady. R: (0, 0), G: (-63, -3), B: (-119, -12)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/melons.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Melons. R: (0, 0), G: (-96, -4), B: (-177, -11)</figcaption>
+            </td>
+            <td>
+                <img src="images/monastery.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Monastery. R: (0, 0), G: (-6, -1), B: (-3, -3)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/onion_church.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Onion Church. R: (0, 0), G: (-58, -10), B: (-107, -35)</figcaption>
+            </td>
+            <td>
+                <img src="images/sculpture.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Sculpture. R: (0, 0), G: (-106, 16), B: (-139, 27)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/self_portrait.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Self Portrait. R: (0, 0), G: (-98, -8), B: (-176, -37)</figcaption>
+            </td>
+            <td>
+                <img src="images/three_generations.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Three Generations. R: (0, 0), G: (-57, -1), B: (-108, -8)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/tobolsk.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Tobolsk. R: (0, 0), G: (-4, -1), B: (-7, -4)</figcaption>
+            </td>
+            <td>
+                <img src="images/train.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Train. R: (0, 0), G: (-44, -27), B: (-85, -29)</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<h3 align="middle">Images from the Prokudin-Gorskii Collection</h3>
+<div align="middle">
+    <table style="width=100%">
+        <tr>
+            <td>
+                <img src="images/Belaia River.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Belaia River. R: (0, 0), G: (-68, 18), B: (-120, -36)</figcaption>
+            </td>
+            <td>
+                <img src="images/Etruscan Vases.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Etruscan Vases. R: (0, 0), G: (-86, -2), B: (-111, -7)</figcaption>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/Milan Cathedral.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Milan Cathedral. R: (0, 0), G: (-52, -10), B: (-108, -25)</figcaption>
+            </td>
+            <td>
+                <img src="images/Milan Cathedral 2.jpg" align="middle" width="400px"/>
+                <figcaption align="middle">Milan Cathedral 2. R: (0, 0), G: (-69, -11), B: (-125, -24)</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+</body>
+</html>
