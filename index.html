@@ -1,149 +1,253 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-<style>
-  body {
-    padding: 100px;
-    width: 1000px;
-    margin: auto;
-    text-align: left;
-    font-weight: 300;
-    font-family: 'Serif', serif;
-    color: #121212;
-  }
-  h1, h2, h3, h4 {
-    font-family: 'Source Serif Pro', serif;
-  }
-</style>
-<title>CS180 Project 1</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link href="https://fonts.googleapis.com/css?family=PT+Serif|Source+Serif+Pro" rel="stylesheet">
-</head>
-
-
-<body>
-
-<h1 align="middle">CS180 Intro to Computer Vision and Computational Photography</h1>
-<h1 align="middle">Project 1 by Wentinn Liao</h1>
-
-<div>
-
-<h2 align="middle">Overview</h2>
-<p>The core of the algorithm uses image histogram, edge detection, and image cross correlation to align the RGB channels. The reasoning behind this approach is that edges where color changes occur are likely to be present in all three channels, and therefore if we can magnifiy the edges, then this transform would be a good candidate for straightforward cross-correlation.</p>
-
-<p>The image histogram transform is used as a means to sharpen the image before edge detection, and is implemented by flattening and sorting the channel, then using <strong>np.searchsorted</strong> to determine what proportion of pixels lie below a given pixel value. Edge detection is implemented through a 3x3 Sobel Kernel, and calculating the Euclidean norm of the empirical color gradients. This norm is scaled linearly to <strong>[-5, 5]</strong> and passed through a sigmoid function to strengthen more prominent edges and weaken the lesser edges. This is then passed into (unnormalized) cross-correlation, which is maximized over a small window of displacements in order to find the optimal one.</p>
-
-<div>
-
-<h2 align="middle">Speedup</h2>
-<p>My algorithm does not explicitly construct a pyramid, but rather recursively constructs lower (half) resolution images until the images size is small enough to be processed directly. Empirically, this is found to be around 600px, which is also around the size of the largest small image. If the image is too large, then it recursively finds the optimal displacement for a half resolution image, doubles the displacement, and uses it as the center of the new search window. An additional speedup is used, which is decaying window size, meaning that as we go from low to high resolution, the window size decays exponentially. The goal of this is is to reduce computations on higher resolution images. This optimization performs well because searches on a lower resolution image will get us in the general ballpark of the optimal displacement, which allows the search window to be smaller for subsequent resolutions. In implementation, the window for low resolution images is <strong>[-40, 40] x [-40, 40]</strong> and decays by <strong>50%</strong> for each recursive call. The runtime is instant for small jpg images and around <strong>40s</strong> for large images, which is acceptable for what I care about.</p>
-
-<div>
-
-<h2 align="middle">Results</h2>
-<p>Shown below are the results of the implemented algorithm. The algorithm performs reasonably well and produces images that are not harmful to the naked eye unlike the unaligned images. However, visual examination on images such as <strong>onion church</strong> and <strong>monastery</strong> shows some of the alignments are marginally incorrect, for example exhibiting a small green or red shadow in the x or y direction. Attempts to fix this included quantization, which merges pixels that are likely to be part of the same object based on the predicted colors, and refinement which looks for these artifacts and makes miniscule changes. This algorithm performs poorly on some images with very fine details that produce many edges. This causes some alignments to be sufficiently good to be determined the "optimal" alignment.</p>
-
-<h3 align="middle">Example Images</h3>
-<div align="middle">
-    <table style="width=100%">
-        <tr>
-            <td>
-                <img src="images/cathedral.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Cathedral. R: (0, 0), G: (-7, -1), B: (-12, -3) </figcaption>
-            </td>
-            <td>
-                <img src="images/church.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Church. R: (0, 0), G: (-33, 8), B: (-58, 4)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/emir.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Emir. R: (0, 0), G: (-58, -17), B: (-107, -41)</figcaption>
-            </td>
-            <td>
-                <img src="images/harvesters.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Harvesters. R: (0, 0), G: (-64, 3), B: (-124, -11)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/icon.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Icon. R: (0, 0), G: (-48, -5), B: (-90, -23)</figcaption>
-            </td>
-            <td>
-                <img src="images/lady.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Lady. R: (0, 0), G: (-63, -3), B: (-119, -12)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/melons.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Melons. R: (0, 0), G: (-96, -4), B: (-177, -11)</figcaption>
-            </td>
-            <td>
-                <img src="images/monastery.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Monastery. R: (0, 0), G: (-6, -1), B: (-3, -3)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/onion_church.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Onion Church. R: (0, 0), G: (-58, -10), B: (-107, -35)</figcaption>
-            </td>
-            <td>
-                <img src="images/sculpture.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Sculpture. R: (0, 0), G: (-106, 16), B: (-139, 27)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/self_portrait.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Self Portrait. R: (0, 0), G: (-98, -8), B: (-176, -37)</figcaption>
-            </td>
-            <td>
-                <img src="images/three_generations.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Three Generations. R: (0, 0), G: (-57, -1), B: (-108, -8)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/tobolsk.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Tobolsk. R: (0, 0), G: (-4, -1), B: (-7, -4)</figcaption>
-            </td>
-            <td>
-                <img src="images/train.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Train. R: (0, 0), G: (-44, -27), B: (-85, -29)</figcaption>
-            </td>
-        </tr>
-    </table>
-</div>
-
-<h3 align="middle">Images from the Prokudin-Gorskii Collection</h3>
-<div align="middle">
-    <table style="width=100%">
-        <tr>
-            <td>
-                <img src="images/Belaia River.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Belaia River. R: (0, 0), G: (-68, 18), B: (-120, -36)</figcaption>
-            </td>
-            <td>
-                <img src="images/Etruscan Vases.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Etruscan Vases. R: (0, 0), G: (-86, -2), B: (-111, -7)</figcaption>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="images/Milan Cathedral.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Milan Cathedral. R: (0, 0), G: (-52, -10), B: (-108, -25)</figcaption>
-            </td>
-            <td>
-                <img src="images/Milan Cathedral 2.jpg" align="middle" width="400px"/>
-                <figcaption align="middle">Milan Cathedral 2. R: (0, 0), G: (-69, -11), B: (-125, -24)</figcaption>
-            </td>
-        </tr>
-    </table>
-</div>
-
-</body>
+    <head>
+        <style>
+            body {
+                padding: 100px;
+                width: 1000px;
+                margin: auto;
+                text-align: left;
+                font-weight: 300;
+                font-family: 'Serif', serif;
+                color: #121212;
+            }
+            h1, h2, h3, h4 {
+                font-family: 'Source Serif Pro', serif;
+            }
+        </style>
+        <title>CS180 Project 4A</title>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <link href="https://fonts.googleapis.com/css?family=PT+Serif|Source+Serif+Pro" rel="stylesheet"/>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous"/>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js" integrity="sha384-y23I5Q6l+B6vatafAwxRu/0oK/79VlbSz7Q9aiSZUvyWYIYsd+qj+o24G5ZU2zJz" crossorigin="anonymous"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/contrib/auto-render.min.js" integrity="sha384-kWPLUVMOks5AQFrykwIup5lo0m3iMkkHrD0uJ4H5cjeGihAutqP0yW0J6dpFiVkI" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script>
+    </head>
+    
+    
+    <body>
+        <h1 align="middle">CS180 Intro to Computer Vision and Computational Photography</h1>
+        <h1 align="middle">Project 5 by Wentinn Liao</h1>
+        
+        <div>
+            <h2 align="left">Part 1. Fit a Neural Field to a 2D Image</h2>
+            <p>The architecture chosen for part 1 is simply the base model, with three linear layers with hidden dimension <b>256</b>, and a final linear layer that leads into a sigmoid. The tuned hyperparameters include learning rate and <b>L</b>, the number of frequencies for each coordinate in the positional embedding. Additionally, a learning rate scheduler was used with an LR decay of <b>0.998</b>, so that the learning rate has decayd by approximately <b>1 / 10</b> after <b>1000</b> iterations. The results of training the default network with learning rate <b>0.01</b> and <b>L = 10</b> are shown below along with the PSNR curve.</p>
+            <div align="middle">
+                <img src="images/singleview/singleview_psnr.png" align="middle" width="480px"/>
+            </div>
+            <div align="middle">
+                <table>
+                    <tr>
+                        <td>
+                            <img src="images/singleview/fox_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/fox_it200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/fox_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/fox_it600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/fox_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/fox_it1000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">Fox iteration 1000.</figcaption>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p>Through hyperparameter search it was found that any learning rate above around <b>0.08</b> does not diverge but oscillates enough to decrease performance, while lower learning rates for the same number of iterations also decrease performance as expected. It was also found that <b>L = 10</b> has the best performance, even when <b>L = 12</b> or <b>14</b>, which may be because a larger network takes longer to train and performs worse after the same number of iterations. Shown below are the PSNR curves over the different choices of <b>L</b>, as well as the resulting images.</p>
+            <div align="middle">
+                <img src="images/singleview/hparam/singleview_psnr.png" align="middle" width="480px"/>
+            </div>
+            <div align="middle">
+                <table>
+                    <tr>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L2_it1000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 2, iteration 1000.</figcaption>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L6_it1000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 6, iteration 1000.</figcaption>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L10_it1000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 10, iteration 1000.</figcaption>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/singleview/hparam/mom_genki_L14_it1000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">L = 14, iteration 1000.</figcaption>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            
+            
+            <h2 align="left">Part 2. Fit a Neural Radiance Field from Multi-view Images</h2>
+            
+            <h3 align="left">Part 2.1. Create Rays from Cameras</h3>
+            <p>The camera coordinates are computed by inverting the intrinsic matrix <b>K</b> and left-multiplying by the augmented <b>uv</b>-coordinates. Because <b>K</b> is constant, its inverse is precomputed beforehand. The ray origin is computed easily by indexing <b>c2w[:3, -1]</b> because it is equal the the translation of the origin, and the ray directions are computed by substituting <b>s = 1</b> and normalizing the difference between \(x_w\) and \(r_o\).</p>
+            
+            
+            <h3 align="left">Part 2.2. Sampling</h3>
+            <p>To sample points from images, we just choose <b>N / M</b> random indices each from <b>[0, H)</b> and <b>[0, W)</b>, and use the same coordinates for every image. Because the camera orientations are quite different, this correlation does not produce a performance decrease. The <b>uv</b>-coordiantes are computed with \((w + 0.5, h + 0.5)\). To sample the points along the rays, we compute the arithmetic sequence and add the perturbation if needed. Similar to the randomization of the rays within the images, the perturbations are also the same, with the observation that the correlation does not decrease performance.</p>
+            
+            
+            <h3 align="left">Part 2.3. Putting the Dataloading All Together</h3>
+            <p>Nothing much is done here besides constructing a class to store the images, c2ws, and the preprocessed \(K^{-\top}\). Also, <b>TensorDict</b> is probably the greatest discovery of all time. If you're a PyTorch main, check it out. The visualization of rays with perturbation during training is shown below:</p>
+            <div align="middle">
+                <img src="images/multiview/rays.png" align="middle" width="960px"/>
+            </div>
+            
+            
+            <h3 align="left">Part 2.4. Neural Radiance Field</h3>
+            <p>The network is implemented (almost) exactly as given, primarily using <b>nn.Sequential</b> to make code cleaner. It was observed that the single linear layer that precedes the concatenation of the embedded \(r_d\) is actually not necessary. If we remove it, it can simply learn to merge it with the previous linear layer, while the density layer can learn to invert the effects of the merge. This reduces training time by around <b>7%</b> and allowed enough RAM to train <b>8000 x 64</b> instead of <b>8000 x 48</b>.</p>
+            
+            
+            <h3 align="left">Part 2.5. Volume Rendering</h3>
+            <p>The rendering is done using <b>torch.cumsum</b> as opposed to <b>torch.cumprod</b> to save some exponentiation. Additionally, the weight attributed to the background color which is by default black is explicitly computed, and added to the render to allow us to render different backgrounds. We train for <b>2000</b> iterations of <b>8000</b> rays each and <b>64</b> points along each ray. The model and optimizer are saved every <b>50</b> iterations to allow continuous training in the case that Colab disconnects. In order to render images for validation, we split the image into a <b>3 x 3</b> grid to allow it to fit within the RAM constraints. This produces the PSNR shown below, as well as the renderings of validation image <b>0</b>.</p>
+            <div align="middle">
+                <img src="images/multiview/multiview_psnr.png" align="middle" width="480px"/>
+            </div>
+            <div align="middle">
+                <table>
+                    <tr>
+                        <td>
+                            <img src="images/multiview/lego_it0.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 0.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/multiview/lego_it400.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 400.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/multiview/lego_it800.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 800.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/multiview/lego_it1200.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 1200.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/multiview/lego_it1600.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 1600.</figcaption>
+                        </td>
+                        <td>
+                            <img src="images/multiview/lego_it2000.jpg" align="middle" width="160px"/>
+                            <figcaption align="middle">LEGO iteration 2000.</figcaption>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <p>Finally, below is the spherical rendering produced with the test data.</p>
+            <div align="middle">
+                <img src="images/multiview/lego_it5000.gif" align="middle" width="480px"/>
+            </div>
+            
+            
+            
+            <h2 align="left">Bells & Whistles. Different Background Colors</h2>
+            <p>As described in <b>part 2.5</b>, the residual weight not attributed to any sampled point on the ray should be given to the background color. If this term is ignored, the effect is the same as a default background of black, so by considering this term, we are able to set any background color we want. We can observe however, that most of the floor is solid black, even when it could have been transparent with a black background. This may be due to the lack of images that view the object from under to motivate the density to be zero.</p>
+            <div align="middle">
+                <img src="images/multiview/lego_it5000_blue.gif" align="middle" width="480px"/>
+            </div>
+        </div>
+    </body>
 </html>
